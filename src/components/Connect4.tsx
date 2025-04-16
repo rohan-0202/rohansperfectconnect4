@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Player, GameState, Board } from '@/types'; // <-- Import types
 import { io, Socket } from "socket.io-client";
 import { Quicksand } from 'next/font/google';
+import bgImage from '../../assets/bg.png'; // Import the background image
 
 // Import child components
 import GameBoard from './GameBoard';
@@ -368,7 +369,16 @@ You're probably familiar with the game connect 4. This game is that game, but my
 
     // --- Render Logic --- 
     return (
-        <div className="relative flex flex-col items-center justify-center min-h-screen bg-[#FDECE2] p-2 sm:p-4 overflow-hidden">
+        <div
+            className="relative flex flex-col items-center justify-center min-h-screen p-2 sm:p-4 overflow-hidden"
+            style={{
+                backgroundImage: `url(${bgImage.src})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+                backgroundAttachment: 'fixed',
+            }}
+        >
             {/* Decorative Images */}
             <DecorativePieces isMounted={isMounted} />
 
