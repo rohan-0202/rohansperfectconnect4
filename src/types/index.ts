@@ -1,0 +1,1 @@
+export type Player = 'red' | 'yellow' | null; 
