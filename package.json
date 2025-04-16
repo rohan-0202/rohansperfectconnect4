@@ -6,6 +6,7 @@
     "dev": "next dev --turbopack",
     "dev:server": "ts-node-dev --respawn --transpile-only server/server.ts",
     "build": "next build",
+    "build:server": "tsc --project tsconfig.server.json",
     "start": "next start",
     "lint": "next lint"
   },

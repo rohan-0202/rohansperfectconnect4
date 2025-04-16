@@ -1,0 +1,21 @@
+{
+    "compilerOptions": {
+        "module": "CommonJS",
+        "outDir": "./server/dist",
+        "rootDir": "./server",
+        "target": "ES2017",
+        "esModuleInterop": true,
+        "resolveJsonModule": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "strict": true,
+        "sourceMap": true,
+        "moduleResolution": "node"
+    },
+    "include": [
+        "server/**/*.ts"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
+}
