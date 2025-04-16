@@ -71,7 +71,7 @@ You're probably familiar with the game connect 4. This game is that game, but my
 **New Rules**
 *   At the start of the game, each player selects a "Sabotage Space".
 *   If a player places their tile on a space that is the other player's Sabotage Space, it becomes the other player's color.
-*   If a player chooses to place a tile on their own Sabotage Space, they are then allowed to pick a new Sabotage Space.
+*   If a player chooses to place a tile on their own Sabotage Space, they are allowed to pick a new Sabotage Space at the beginning of their next turn.
 *   If both players have the same Sabotage Space, the effect is cancelled out without either player knowing until either player places a tile there, and then both players pick new Sabotage Spaces.
     `;
 
