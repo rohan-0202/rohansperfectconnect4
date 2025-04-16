@@ -208,7 +208,12 @@ You're probably familiar with the game connect 4. This game is that game, but my
                 if (myTurn) {
                     if (iNeedToReselect) {
                         // Show reselect message even though phase is 'playing'
-                        newMessage = <>Your turn (<span className={`font-semibold ${myPlayerColor === 'red' ? 'text-red-600' : 'text-yellow-600'}`}>{myPlayerColor === 'red' ? 'Red' : 'Yellow'}</span>): Select a NEW Sabotage Space</>;
+                        newMessage = (
+                            <div className="flex flex-col items-center text-center">
+                                <span>Your turn (<span className={`font-semibold ${myPlayerColor === 'red' ? 'text-red-600' : 'text-yellow-600'}`}>{myPlayerColor === 'red' ? 'Red' : 'Yellow'}</span>):</span>
+                                <span>Select a NEW Sabotage Space</span>
+                            </div>
+                        );
                     } else {
                         // Normal playing turn message
                         newMessage = <>Your turn (<span className={`font-semibold ${myPlayerColor === 'red' ? 'text-red-600' : 'text-yellow-600'}`}>{myPlayerColor === 'red' ? 'Red' : 'Yellow'}</span>)</>;
@@ -359,9 +364,9 @@ You're probably familiar with the game connect 4. This game is that game, but my
     const myTurnToPlay = myTurn && gamePhase === 'playing' && !iNeedToReselect;
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-200 to-purple-300 p-4">
+        <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-200 to-purple-300 p-2 sm:p-4">
             {/* Apply the font class to the h1 element */}
-            <h1 className={`text-5xl font-extrabold mb-6 text-gray-800 ${quicksand.className}`}>
+            <h1 className={`text-3xl sm:text-4xl md:text-5xl font-extrabold mb-4 sm:mb-6 text-gray-800 ${quicksand.className} text-center`}>
                 Rohans Perfect Connect 4
             </h1>
 
@@ -374,38 +379,37 @@ You're probably familiar with the game connect 4. This game is that game, but my
 
             {/* Conditional Rendering: Show Create/Join buttons OR Game ID OR Board */}
             {!gameState && gamePhase === 'initial' && (
-                <div className="flex flex-col items-center space-y-4">
-                    <div className="flex space-x-4">
+                <div className="flex flex-col items-center space-y-4 w-full px-2">
+                    <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-4 w-full justify-center">
                         <button
                             onClick={handleCreateGame}
                             disabled={!socket || !!gameId}
-                            className="px-6 py-3 bg-green-600 text-white rounded-lg shadow hover:bg-green-700 disabled:bg-gray-400 transition-colors duration-200 text-lg font-semibold"
+                            className="w-full sm:w-auto px-4 py-2 sm:px-6 sm:py-3 bg-green-600 text-white rounded-lg shadow hover:bg-green-700 disabled:bg-gray-400 transition-colors duration-200 text-base sm:text-lg font-semibold"
                         >
                             Create Game
                         </button>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
                             <input
                                 type="text"
                                 value={joinGameIdInput}
                                 onChange={(e) => setJoinGameIdInput(e.target.value)}
                                 placeholder="Enter Game ID"
-                                className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 placeholder-gray-700 text-gray-800"
+                                className="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 placeholder-gray-700 text-gray-800"
                                 disabled={!socket || !!gameId}
                             />
                             <button
                                 onClick={handleJoinGame}
                                 disabled={!socket || !!gameId || !joinGameIdInput.trim()}
-                                className="px-6 py-3 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 disabled:bg-gray-400 transition-colors duration-200 text-lg font-semibold"
+                                className="w-full sm:w-auto px-4 py-2 sm:px-6 sm:py-3 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 disabled:bg-gray-400 transition-colors duration-200 text-base sm:text-lg font-semibold"
                             >
                                 Join Game
                             </button>
                         </div>
                     </div>
-                    {/* Rules Button - Moved and Centered Below */}
                     <div className="w-full flex justify-center mt-4">
                         <button
                             onClick={() => setShowRules(!showRules)}
-                            className="px-6 py-3 bg-gray-500 text-white rounded-lg shadow hover:bg-gray-600 disabled:bg-gray-400 transition-colors duration-200 text-lg font-semibold"
+                            className="px-4 py-2 sm:px-6 sm:py-3 bg-gray-500 text-white rounded-lg shadow hover:bg-gray-600 disabled:bg-gray-400 transition-colors duration-200 text-base sm:text-lg font-semibold"
                         >
                             Rules
                         </button>
@@ -413,13 +417,10 @@ You're probably familiar with the game connect 4. This game is that game, but my
                     {joinError && (
                         <p className="mt-2 text-red-600 font-semibold">Error: {joinError}</p>
                     )}
-                    {/* Rules Dropdown - Added Here */}
                     {showRules && (
                         <div className="mt-4 p-4 bg-white rounded-lg shadow-lg border border-gray-300 max-w-md w-full text-left text-sm">
                             <h3 className="text-lg font-semibold mb-2 text-gray-700">Game Rules</h3>
-                            {/* Use pre-wrap to preserve formatting */}
                             <pre className="whitespace-pre-wrap text-gray-600">{rulesText}</pre>
-                            {/* Center the Close button */}
                             <div className="w-full flex justify-center mt-3">
                                 <button
                                     onClick={() => setShowRules(false)}
@@ -434,66 +435,59 @@ You're probably familiar with the game connect 4. This game is that game, but my
             )}
 
             {(gameState || gameId) && !opponentLeftMessage && ( // Only show game if opponent hasn't left
-                <> {/* Fragment to group game elements */}
-                    <div className="flex justify-between items-center w-full max-w-lg mb-4">
-                        <div className="text-2xl text-gray-700 flex-grow text-center min-h-[3rem] flex items-center justify-center">
+                <div className="flex flex-col items-center w-full max-w-md md:max-w-lg lg:max-w-xl">
+                    <div className="flex justify-center items-center w-full mb-4 min-h-[4rem]">
+                        <div className="text-lg sm:text-xl md:text-2xl text-gray-700 text-center">
                             {message}
                         </div>
                     </div>
 
-                    <div className="relative">
-                        <div className="grid grid-cols-7 gap-2 bg-blue-700 p-3 rounded-lg mb-6 shadow-xl border-4 border-blue-800">
+                    <div className="relative w-full flex flex-col items-center">
+                        <div className="grid grid-cols-7 gap-1 sm:gap-2 bg-blue-700 p-2 sm:p-3 rounded-lg mb-4 sm:mb-6 shadow-xl border-2 sm:border-4 border-blue-800 w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg">
                             {board.map((row, rowIndex) =>
                                 row.map((cell, colIndex) => {
-                                    // Determine if the cell is clickable based on phase and turn
-                                    // const canClickCell = myTurnToSelect; // No longer needed directly
                                     const canClickColumn = gamePhase === 'playing' && myTurnToPlay;
-
-                                    // Assign click handler based on whether selection or playing is appropriate
                                     const clickHandler = myTurnToSelect
                                         ? () => handleSabotageSelectionClick(rowIndex, colIndex)
-                                        : () => handleColumnClick(colIndex); // Column handler will only be effective if myTurnToPlay is true
-
-                                    // Cell is disabled if game is over OR it's not my turn to select/play
+                                        : () => handleColumnClick(colIndex);
                                     const isDisabled = gamePhase === 'game_over' || (!myTurnToSelect && !myTurnToPlay);
-
-                                    // Cursor depends on whether selecting or playing is possible
                                     const cursorStyle = isDisabled ? 'cursor-default' : (myTurnToSelect ? 'cursor-crosshair' : 'cursor-pointer');
-
-                                    // Highlight potential sabotage selection for the current player
-                                    const selectionHoverClass = myTurnToSelect
-                                        ? (myPlayerColor === 'red' ? 'group-hover:bg-red-400' : 'group-hover:bg-yellow-400')
-                                        : '';
-
-                                    // Highlight playable columns on hover during playing phase
+                                    const selectionHoverClass = myTurnToSelect ? (myPlayerColor === 'red' ? 'group-hover:bg-red-400' : 'group-hover:bg-yellow-400') : '';
                                     const playHoverClass = canClickColumn ? 'hover:bg-blue-400' : '';
+                                    const isMySabotageSpot =
+                                        (myPlayerColor === 'red' && gameState?.redSabotage?.row === rowIndex && gameState?.redSabotage?.col === colIndex) ||
+                                        (myPlayerColor === 'yellow' && gameState?.yellowSabotage?.row === rowIndex && gameState?.yellowSabotage?.col === colIndex);
 
-                                    const innerCircleClass = cell === null && myTurnToSelect
-                                        ? selectionHoverClass
-                                        : getCellClass(cell);
+                                    let innerCircleClass = '';
+                                    if (cell !== null) {
+                                        innerCircleClass = getCellClass(cell);
+                                    } else if (isMySabotageSpot) {
+                                        innerCircleClass = 'bg-gray-600 opacity-75';
+                                    } else if (myTurnToSelect) {
+                                        innerCircleClass = selectionHoverClass;
+                                    } else {
+                                        innerCircleClass = 'bg-gray-200';
+                                    }
 
                                     return (
                                         <div
                                             key={`${rowIndex}-${colIndex}`}
-                                            // Use group for column hover effect if needed
-                                            className={`group w-12 h-12 md:w-16 md:h-16 flex items-center justify-center rounded-full bg-blue-500 ${cursorStyle} ${playHoverClass} transition-colors duration-150`}
+                                            className={`group aspect-square flex items-center justify-center rounded-full bg-blue-500 ${cursorStyle} ${playHoverClass} transition-colors duration-150`}
                                             onClick={!isDisabled ? clickHandler : undefined}
                                         >
                                             <div
-                                                // Apply hover effect to the inner circle during selection phase
-                                                className={`w-10 h-10 md:w-14 md:h-14 rounded-full ${innerCircleClass} shadow-lg border-2 ${cell ? (cell === 'red' ? 'border-red-800' : 'border-yellow-800') : 'border-gray-400'} transition-colors duration-150`}
+                                                className={`w-[85%] h-[85%] rounded-full ${innerCircleClass} shadow-inner border ${cell ? (cell === 'red' ? 'border-red-700' : 'border-yellow-700') : 'border-gray-400'} transition-colors duration-150`}
                                             ></div>
                                         </div>
                                     );
                                 })
                             )}
                         </div>
-                        {/* Wrap button in a div for centering */}
                         <div className="w-full flex justify-center">
                             {gamePhase !== 'game_over' && gamePhase !== 'initial' && (
                                 <button
                                     onClick={handleLeaveGame}
-                                    className="mt-2 mb-4 px-4 py-2 bg-red-600 text-white rounded-lg shadow hover:bg-red-700 transition-colors duration-200 text-sm font-semibold"
+                                    className="mb-4 px-4 py-2 bg-red-600 text-white rounded-lg shadow hover:bg-red-700 transition-colors duration-200 text-sm sm:text-base font-semibold"
                                 >
                                     Leave Game
                                 </button>
@@ -502,15 +496,14 @@ You're probably familiar with the game connect 4. This game is that game, but my
                     </div>
 
                     {gamePhase === 'game_over' && (
-                        <div className="mt-4 text-center"> {/* Wrap button and potential message */}
+                        <div className="mt-4 text-center">
                             <button
-                                onClick={handleRequestRematch} // Use new handler
-                                disabled={playAgainDisabled} // Use dynamic disabled state
-                                className="px-6 py-3 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700 disabled:bg-gray-400 transition-colors duration-200 text-lg font-semibold"
+                                onClick={handleRequestRematch}
+                                disabled={playAgainDisabled}
+                                className="px-4 py-2 sm:px-6 sm:py-3 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700 disabled:bg-gray-400 transition-colors duration-200 text-base sm:text-lg font-semibold"
                             >
-                                {playAgainButtonText} {/* Use dynamic text */}
+                                {playAgainButtonText}
                             </button>
-                            {/* Optionally, add a message if waiting */}
                             {iRequested && !opponentRequested && (
                                 <p className="mt-2 text-gray-600">Rematch request sent.</p>
                             )}
@@ -519,7 +512,7 @@ You're probably familiar with the game connect 4. This game is that game, but my
                             )}
                         </div>
                     )}
-                </>
+                </div>
             )}
         </div>
     );
