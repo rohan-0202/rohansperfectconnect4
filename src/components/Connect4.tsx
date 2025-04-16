@@ -27,6 +27,7 @@ interface GameState {
     overlapJustTriggered: Player | null;
     sabotageTriggeredBy: Player | null;
     rematchRequested: { red: boolean, yellow: boolean };
+    pendingReselect: { red: boolean, yellow: boolean };
 }
 // --- End Server Types ---
 
@@ -61,13 +62,13 @@ const Connect4: React.FC = () => {
     const rulesText = `
 You're probably familiar with the game connect 4. This game is that game, but my friend said connect 4 was too simple, so I added a twist.
 
-**Rules that are the same:**
+**Rules that are the same**
 *   Red goes first, Yellow goes second placing tiles on the board.
 *   They alternate in turns, and tiles fall to the bottom unfilled space of their column.
 *   If either player makes 4 tiles in a row horizontally, vertically, or diagonally, that player wins.
 *   If the board fills up completely with the above condition unfulfilled, the game is a draw.
 
-**New Rules:**
+**New Rules**
 *   At the start of the game, each player selects a "Sabotage Space".
 *   If a player places their tile on a space that is the other player's Sabotage Space, it becomes the other player's color.
 *   If a player chooses to place a tile on their own Sabotage Space, they are then allowed to pick a new Sabotage Space.
@@ -168,9 +169,10 @@ You're probably familiar with the game connect 4. This game is that game, but my
         }
 
         let newMessage: string | React.ReactNode = "";
-        const { gamePhase, currentPlayer, winner, isDraw, overlapJustTriggered } = gameState;
+        const { gamePhase, currentPlayer, winner, isDraw, overlapJustTriggered, pendingReselect } = gameState;
         const playerString = currentPlayer === 'red' ? "Red" : "Yellow";
         const myTurn = currentPlayer === myPlayerColor;
+        const iNeedToReselect = (myPlayerColor === 'red' && pendingReselect?.red) || (myPlayerColor === 'yellow' && pendingReselect?.yellow);
 
         switch (gamePhase) {
             case 'waiting_for_opponent':
@@ -204,10 +206,16 @@ You're probably familiar with the game connect 4. This game is that game, but my
                 break;
             case 'playing':
                 if (myTurn) {
-                    newMessage = <>Your turn (<span className={`font-semibold ${myPlayerColor === 'red' ? 'text-red-600' : 'text-yellow-600'}`}>{myPlayerColor === 'red' ? 'Red' : 'Yellow'}</span>)</>;
+                    if (iNeedToReselect) {
+                        // Show reselect message even though phase is 'playing'
+                        newMessage = <>Your turn (<span className={`font-semibold ${myPlayerColor === 'red' ? 'text-red-600' : 'text-yellow-600'}`}>{myPlayerColor === 'red' ? 'Red' : 'Yellow'}</span>): Select a NEW Sabotage Space</>;
+                    } else {
+                        // Normal playing turn message
+                        newMessage = <>Your turn (<span className={`font-semibold ${myPlayerColor === 'red' ? 'text-red-600' : 'text-yellow-600'}`}>{myPlayerColor === 'red' ? 'Red' : 'Yellow'}</span>)</>;
+                    }
                 } else {
+                    // Waiting message remains the same
                     newMessage = (
-                        // Combine into one span to ensure space is preserved
                         <span>
                             Waiting for <span className={`font-semibold ${currentPlayer === 'red' ? 'text-red-600' : 'text-yellow-600'}`}>{playerString}</span>
                         </span>
@@ -261,19 +269,23 @@ You're probably familiar with the game connect 4. This game is that game, but my
 
     const handleSabotageSelectionClick = useCallback((row: number, col: number) => {
         if (!socket || !gameId || !gameState) return;
-        // Only allow sabotage selection if it's this player's turn to select
-        const myTurnToSelect = (gameState.gamePhase === 'init_select_red' && myPlayerColor === 'red') ||
-            (gameState.gamePhase === 'init_select_yellow' && myPlayerColor === 'yellow') ||
-            (gameState.gamePhase === 'sabotage_select_red' && myPlayerColor === 'red') ||
-            (gameState.gamePhase === 'sabotage_select_yellow' && myPlayerColor === 'yellow');
 
-        if (myTurnToSelect) {
-            console.log(`Emitting select_sabotage: ${row}, ${col}`);
-            socket.emit('select_sabotage', { gameId, row, col });
-        } else {
-            console.log("Not your turn to select sabotage.");
+        // The render logic determines if this handler should be active via `myTurnToSelect`.
+        // If this function is called, we assume it's valid and just emit the event.
+
+        // Validate coordinates are within bounds (basic client check)
+        if (row < 0 || row >= ROWS || col < 0 || col >= COLS) {
+            console.error("Invalid coordinates selected on client.");
+            // Maybe show a temporary error message?
+            return;
         }
-    }, [socket, gameId, gameState, myPlayerColor]);
+        // Optional: Check if cell is already occupied? 
+        // if (gameState.board[row][col] !== null) return;
+
+        console.log(`Emitting select_sabotage: ${row}, ${col}`);
+        socket.emit('select_sabotage', { gameId, row, col });
+
+    }, [socket, gameId, gameState]); // Removed myPlayerColor from dependencies as it's not used directly here anymore
 
     const handleColumnClick = useCallback((colIndex: number) => {
         if (!socket || !gameId || !gameState) return;
@@ -304,6 +316,8 @@ You're probably familiar with the game connect 4. This game is that game, but my
     // --- Render Logic ---
     const board = gameState?.board || createEmptyBoard(); // Use server board or empty if null
     const gamePhase = gameState?.gamePhase ?? 'initial'; // Use server phase or initial if null
+    const iNeedToReselect = (myPlayerColor === 'red' && gameState?.pendingReselect.red) || (myPlayerColor === 'yellow' && gameState?.pendingReselect.yellow);
+    const myTurn = gameState?.currentPlayer === myPlayerColor; // Explicit check for current turn
 
     // Determine button text and disabled state based on rematch requests
     let playAgainButtonText = "Play Again?";
@@ -327,11 +341,22 @@ You're probably familiar with the game connect 4. This game is that game, but my
     }
 
     const isSelectionPhase = gamePhase.includes('select');
-    const myTurnToSelect = (gamePhase === 'init_select_red' && myPlayerColor === 'red') ||
-        (gamePhase === 'init_select_yellow' && myPlayerColor === 'yellow') ||
-        (gamePhase === 'sabotage_select_red' && myPlayerColor === 'red') ||
-        (gamePhase === 'sabotage_select_yellow' && myPlayerColor === 'yellow');
-    const myTurnToPlay = (gamePhase === 'playing' && gameState?.currentPlayer === myPlayerColor);
+
+    // Player can select sabotage ONLY IF it's my turn AND (
+    //   (it's an explicit selection phase for my color) 
+    //   OR 
+    //   (a reselect is pending during playing phase)
+    // )
+    const myTurnToSelect = myTurn && (
+        (isSelectionPhase && (
+            ((gamePhase === 'init_select_red' || gamePhase === 'sabotage_select_red') && myPlayerColor === 'red') ||
+            ((gamePhase === 'init_select_yellow' || gamePhase === 'sabotage_select_yellow') && myPlayerColor === 'yellow')
+        )) ||
+        (gamePhase === 'playing' && iNeedToReselect)
+    );
+
+    // Player can play only if it's the playing phase AND my turn AND no reselect is pending
+    const myTurnToPlay = myTurn && gamePhase === 'playing' && !iNeedToReselect;
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-200 to-purple-300 p-4">
@@ -394,12 +419,15 @@ You're probably familiar with the game connect 4. This game is that game, but my
                             <h3 className="text-lg font-semibold mb-2 text-gray-700">Game Rules</h3>
                             {/* Use pre-wrap to preserve formatting */}
                             <pre className="whitespace-pre-wrap text-gray-600">{rulesText}</pre>
-                            <button
-                                onClick={() => setShowRules(false)}
-                                className="mt-3 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs"
-                            >
-                                Close
-                            </button>
+                            {/* Center the Close button */}
+                            <div className="w-full flex justify-center mt-3">
+                                <button
+                                    onClick={() => setShowRules(false)}
+                                    className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs"
+                                >
+                                    Close
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -418,26 +446,29 @@ You're probably familiar with the game connect 4. This game is that game, but my
                             {board.map((row, rowIndex) =>
                                 row.map((cell, colIndex) => {
                                     // Determine if the cell is clickable based on phase and turn
-                                    const canClickCell = isSelectionPhase && myTurnToSelect;
+                                    // const canClickCell = myTurnToSelect; // No longer needed directly
                                     const canClickColumn = gamePhase === 'playing' && myTurnToPlay;
 
-                                    const clickHandler = isSelectionPhase
+                                    // Assign click handler based on whether selection or playing is appropriate
+                                    const clickHandler = myTurnToSelect
                                         ? () => handleSabotageSelectionClick(rowIndex, colIndex)
-                                        : () => handleColumnClick(colIndex);
+                                        : () => handleColumnClick(colIndex); // Column handler will only be effective if myTurnToPlay is true
 
-                                    const isDisabled = gamePhase === 'game_over' || (!canClickCell && !canClickColumn);
+                                    // Cell is disabled if game is over OR it's not my turn to select/play
+                                    const isDisabled = gamePhase === 'game_over' || (!myTurnToSelect && !myTurnToPlay);
 
-                                    const cursorStyle = isDisabled ? 'cursor-default' : (isSelectionPhase ? 'cursor-crosshair' : 'cursor-pointer');
+                                    // Cursor depends on whether selecting or playing is possible
+                                    const cursorStyle = isDisabled ? 'cursor-default' : (myTurnToSelect ? 'cursor-crosshair' : 'cursor-pointer');
 
                                     // Highlight potential sabotage selection for the current player
-                                    const selectionHoverClass = canClickCell
+                                    const selectionHoverClass = myTurnToSelect
                                         ? (myPlayerColor === 'red' ? 'group-hover:bg-red-400' : 'group-hover:bg-yellow-400')
                                         : '';
 
                                     // Highlight playable columns on hover during playing phase
                                     const playHoverClass = canClickColumn ? 'hover:bg-blue-400' : '';
 
-                                    const innerCircleClass = cell === null && canClickCell
+                                    const innerCircleClass = cell === null && myTurnToSelect
                                         ? selectionHoverClass
                                         : getCellClass(cell);
 

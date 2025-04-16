@@ -22,6 +22,7 @@ interface GameState {
     overlapJustTriggered: Player | null;
     sabotageTriggeredBy: Player | null; // Added: Who caused the sabotage re-selection?
     rematchRequested: { red: boolean, yellow: boolean }; // Added: Track rematch requests
+    pendingReselect: { red: boolean, yellow: boolean }; // Added: Track pending reselects per player
 }
 
 // --- Constants ---
@@ -119,6 +120,7 @@ io.on('connection', (socket: Socket) => {
             overlapJustTriggered: null,
             sabotageTriggeredBy: null, // Initialize new field
             rematchRequested: { red: false, yellow: false }, // Initialize new field
+            pendingReselect: { red: false, yellow: false }, // Initialize new structure
         };
 
         // Put the creating player into the room
@@ -191,16 +193,34 @@ io.on('connection', (socket: Socket) => {
             return;
         }
 
-        // Validate Phase and Turn
-        const validPhase = game.gamePhase === 'init_select_red' || game.gamePhase === 'init_select_yellow' ||
-            game.gamePhase === 'sabotage_select_red' || game.gamePhase === 'sabotage_select_yellow';
+        // --- Stricter Validation --- 
+        let canSelect = false;
         const correctTurn = game.currentPlayer === playerColor;
 
-        if (!validPhase || !correctTurn) {
-            console.log(`Invalid sabotage selection attempt by ${playerColor} in phase ${game.gamePhase} (current: ${game.currentPlayer})`);
-            socket.emit('game_error', { message: "Not your turn to select sabotage or invalid game phase." });
+        // Case 1: Explicit selection phase (init or post-overlap/trigger)
+        if ((game.gamePhase === 'init_select_red' || game.gamePhase === 'sabotage_select_red') && playerColor === 'red' && correctTurn) {
+            canSelect = true;
+        } else if ((game.gamePhase === 'init_select_yellow' || game.gamePhase === 'sabotage_select_yellow') && playerColor === 'yellow' && correctTurn) {
+            canSelect = true;
+        }
+        // Case 2: Delayed reselect during playing phase (turn MUST belong to player with pending flag)
+        else if (game.gamePhase === 'playing' && correctTurn) { // Check if it's the player's turn first
+            if (playerColor === 'red' && game.pendingReselect.red) {
+                canSelect = true;
+            } else if (playerColor === 'yellow' && game.pendingReselect.yellow) {
+                canSelect = true;
+            }
+        }
+
+        if (!canSelect) {
+            console.log(`*** REJECTED *** Invalid sabotage selection attempt by ${playerColor} in phase ${game.gamePhase} (current: ${game.currentPlayer}, pending: R${game.pendingReselect.red} Y${game.pendingReselect.yellow})`);
+            socket.emit('game_error', { message: "Cannot select sabotage at this time." });
             return;
         }
+        // --- End Stricter Validation ---
+
+        // Proceed if validation passed...
+        const isDelayedReselect = game.gamePhase === 'playing' && canSelect; // We know it must be a delayed reselect if phase is playing
 
         // Validate coordinates
         if (row < 0 || row >= ROWS || col < 0 || col >= COLS) {
@@ -214,7 +234,7 @@ io.on('connection', (socket: Socket) => {
         //     return;
         // }
 
-        console.log(`Player ${playerColor} (${socket.id}) selected sabotage at (${row}, ${col}) in game ${gameId}`);
+        console.log(`Player ${playerColor} (${socket.id}) selected sabotage at (${row}, ${col}) in game ${gameId} (Delayed: ${isDelayedReselect})`);
 
         // Update Sabotage Spot
         if (playerColor === 'red') {
@@ -224,54 +244,60 @@ io.on('connection', (socket: Socket) => {
         }
 
         // Advance Phase and Current Player
-        const currentPhase = game.gamePhase;
+        const currentPhase = game.gamePhase; // Use phase *before* potential change
+        const cause = game.sabotageTriggeredBy; // Store the cause before potentially resetting it
+
+        // Clear the pending flag now that selection is happening
+        if (isDelayedReselect) {
+            console.log(`Clearing pending reselect flag for ${playerColor}`);
+            if (playerColor === 'red') game.pendingReselect.red = false;
+            else game.pendingReselect.yellow = false;
+        }
+
+        // Phase transition logic
         if (currentPhase === 'init_select_red') {
             game.gamePhase = 'init_select_yellow';
             game.currentPlayer = 'yellow';
+            game.sabotageTriggeredBy = null; // Clear trigger info
         } else if (currentPhase === 'init_select_yellow') {
             game.gamePhase = 'playing';
             game.currentPlayer = 'red'; // Red starts the playing phase
-        } else if (currentPhase === 'sabotage_select_red') {
-            const selectingPlayer = 'red'; // We know who is selecting based on the phase
+            game.sabotageTriggeredBy = null; // Clear trigger info
+        } else if (currentPhase === 'sabotage_select_red' || (isDelayedReselect && playerColor === 'red')) {
+            const selectingPlayer = 'red';
             const opponentPlayer = 'yellow';
             if (game.overlapJustTriggered === selectingPlayer) {
-                // Red selected after overlap, now Yellow selects
                 game.gamePhase = 'sabotage_select_yellow';
                 game.currentPlayer = opponentPlayer;
-                // Keep overlapJustTriggered until Yellow selects
+                // Keep overlapJustTriggered, sabotageTriggeredBy is already null from overlap
             } else {
-                // Non-overlap: Red selected after self-trigger or opponent-trigger.
-                if (game.sabotageTriggeredBy === selectingPlayer) {
-                    // Self-trigger (Red landed on Red's spot)
-                    game.currentPlayer = opponentPlayer; // Turn passes to Yellow
-                } else {
-                    // Opponent-trigger (Yellow landed on Red's spot)
-                    game.currentPlayer = selectingPlayer; // Red gets the turn
+                // Non-overlap reselection by Red
+                if (cause === selectingPlayer) { // Check cause: Self-trigger?
+                    game.currentPlayer = opponentPlayer; // Yes, turn passes to Yellow
+                } else { // No, must have been opponent trigger
+                    game.currentPlayer = selectingPlayer; // Turn stays with Red
                 }
                 game.gamePhase = 'playing';
                 game.overlapJustTriggered = null;
-                game.sabotageTriggeredBy = null; // Reset trigger info
+                game.sabotageTriggeredBy = null; // Reset trigger info AFTER using it
             }
-        } else if (currentPhase === 'sabotage_select_yellow') {
+        } else if (currentPhase === 'sabotage_select_yellow' || (isDelayedReselect && playerColor === 'yellow')) {
             const selectingPlayer = 'yellow';
             const opponentPlayer = 'red';
             if (game.overlapJustTriggered === selectingPlayer) {
-                // Yellow selected after overlap, now Red selects
                 game.gamePhase = 'sabotage_select_red';
                 game.currentPlayer = opponentPlayer;
-                // Keep overlapJustTriggered until Red selects
+                // Keep overlapJustTriggered, sabotageTriggeredBy is already null from overlap
             } else {
-                // Non-overlap: Yellow selected after self-trigger or opponent-trigger.
-                if (game.sabotageTriggeredBy === selectingPlayer) {
-                    // Self-trigger (Yellow landed on Yellow's spot)
-                    game.currentPlayer = opponentPlayer; // Turn passes to Red
-                } else {
-                    // Opponent-trigger (Red landed on Yellow's spot)
-                    game.currentPlayer = selectingPlayer; // Yellow gets the turn
+                // Non-overlap reselection by Yellow
+                if (cause === selectingPlayer) { // Check cause: Self-trigger?
+                    game.currentPlayer = opponentPlayer; // Yes, turn passes to Red
+                } else { // No, must have been opponent trigger
+                    game.currentPlayer = selectingPlayer; // Turn stays with Yellow
                 }
                 game.gamePhase = 'playing';
                 game.overlapJustTriggered = null;
-                game.sabotageTriggeredBy = null; // Reset trigger info
+                game.sabotageTriggeredBy = null; // Reset trigger info AFTER using it
             }
         }
 
@@ -289,12 +315,43 @@ io.on('connection', (socket: Socket) => {
             return;
         }
 
-        const playerMakingMove = game.players[socket.id];
+        const playerMakingMove = game.players[socket.id] as Player;
         if (!playerMakingMove) {
             console.error(`Make move failed: Player ${socket.id} not found in game ${gameId}.`);
             socket.emit('game_error', { message: "Error identifying player for making move." });
             return;
         }
+
+        // --- START: Check for Delayed Sabotage Reselect ---
+        let needsReselect = false;
+        if (playerMakingMove === 'red' && game.pendingReselect.red) {
+            needsReselect = true;
+        } else if (playerMakingMove === 'yellow' && game.pendingReselect.yellow) {
+            needsReselect = true;
+        }
+
+        if (needsReselect) {
+            console.log(`Player ${playerMakingMove}'s turn arriving, initiating delayed sabotage reselect.`);
+
+            // Clear the spot now
+            if (playerMakingMove === 'red') game.redSabotage = null;
+            else game.yellowSabotage = null;
+
+            // Clear the pending flag for this player
+            if (playerMakingMove === 'red') game.pendingReselect.red = false;
+            else game.pendingReselect.yellow = false;
+
+            // Set phase for selection
+            game.gamePhase = playerMakingMove === 'red' ? 'sabotage_select_red' : 'sabotage_select_yellow';
+            game.currentPlayer = playerMakingMove; // It IS their turn to select
+            game.sabotageTriggeredBy = null; // Clear trigger info as it's resolved
+            game.overlapJustTriggered = null;
+
+            io.to(gameId).emit('game_update', game);
+            console.log(`Sent game_update for delayed sabotage selection start by ${playerMakingMove}`);
+            return; // Stop processing the move they tried to make
+        }
+        // --- END: Check for Delayed Sabotage Reselect ---
 
         // Validate Phase and Turn
         if (game.gamePhase !== 'playing') {
@@ -371,43 +428,44 @@ io.on('connection', (socket: Socket) => {
         }
 
         // --- Handle Sabotage Outcomes & Next Turn/Phase ---
-        game.sabotageTriggeredBy = null; // Reset by default
-
         if (isOverlap) {
             console.log(`Overlap triggered by ${playerMakingMove} at (${rowIndex}, ${colIndex}) in game ${gameId}. Both reselect.`);
             game.overlapJustTriggered = playerMakingMove;
-            game.redSabotage = null; // Clear both spots
+            game.redSabotage = null;
             game.yellowSabotage = null;
+            game.pendingReselect = { red: false, yellow: false }; // Clear pending flags
+            game.sabotageTriggeredBy = null; // Clear trigger info on overlap
             game.gamePhase = playerMakingMove === 'red' ? 'sabotage_select_red' : 'sabotage_select_yellow';
-            game.currentPlayer = playerMakingMove; // Player who triggered selects first
+            game.currentPlayer = playerMakingMove;
         } else if (isOpponentSabotage) {
             console.log(`Sabotage triggered by ${playerMakingMove} on ${opponent}'s spot in game ${gameId}. ${opponent} reselects.`);
             game.overlapJustTriggered = null;
-            game.sabotageTriggeredBy = playerMakingMove; // Store who triggered it
-            if (playerMakingMove === 'red') game.yellowSabotage = null; // Clear opponent's spot
+            game.sabotageTriggeredBy = playerMakingMove; // Store who triggered it for select_sabotage logic
+            if (playerMakingMove === 'red') game.yellowSabotage = null;
             else game.redSabotage = null;
+            game.pendingReselect = { red: false, yellow: false }; // Clear pending flags
             game.gamePhase = opponent === 'red' ? 'sabotage_select_red' : 'sabotage_select_yellow';
-            game.currentPlayer = opponent; // Opponent selects new spot
-        } else if (isOwnSabotage) {
-            console.log(`Player ${playerMakingMove} triggered own sabotage in game ${gameId}. ${playerMakingMove} reselects.`);
-            game.overlapJustTriggered = null;
-            game.sabotageTriggeredBy = playerMakingMove; // Store who triggered it
-            if (playerMakingMove === 'red') game.redSabotage = null; // Clear own spot
-            else game.yellowSabotage = null;
-            game.gamePhase = playerMakingMove === 'red' ? 'sabotage_select_red' : 'sabotage_select_yellow';
-            game.currentPlayer = playerMakingMove; // Player selects new spot
-        } else {
-            // Normal move, switch player, stay in playing phase
-            game.overlapJustTriggered = null;
-            // game.sabotageTriggeredBy remains null (already set)
             game.currentPlayer = opponent;
-            // game.gamePhase remains 'playing'
+        } else if (isOwnSabotage) {
+            console.log(`Player ${playerMakingMove} triggered own sabotage in game ${gameId}. Reselect DELAYED.`);
+            game.overlapJustTriggered = null;
+            // SET the pending flag for the player who triggered it
+            if (playerMakingMove === 'red') game.pendingReselect.red = true;
+            else game.pendingReselect.yellow = true;
+            game.sabotageTriggeredBy = playerMakingMove; // Store who caused the pending state
+            // Turn passes to opponent
+            game.currentPlayer = opponent;
+        } else {
+            // Normal move
+            game.overlapJustTriggered = null;
+            // Keep existing pendingReselect flags
+            game.sabotageTriggeredBy = null; // Clear trigger info on normal move
+            game.currentPlayer = opponent;
         }
 
         // Send update to all players in the room
         io.to(gameId).emit('game_update', game);
         console.log(`Sent game_update to room ${gameId} after move by ${playerMakingMove}`);
-
     });
 
     // --- Rematch Logic ---
@@ -472,6 +530,7 @@ io.on('connection', (socket: Socket) => {
             game.overlapJustTriggered = null;
             game.sabotageTriggeredBy = null;
             game.rematchRequested = { red: false, yellow: false }; // Reset requests
+            game.pendingReselect = { red: false, yellow: false }; // Reset pending reselect on rematch
             game.gamePhase = 'init_select_red'; // New Red (old Yellow) selects first
             game.currentPlayer = 'red'; // Set current player to new Red
 
