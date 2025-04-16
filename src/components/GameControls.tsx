@@ -1,5 +1,5 @@
 import React from 'react';
-import { GamePhase, Player } from '@/types';
+import { GamePhase } from '@/types';
 
 interface GameControlsProps {
     gamePhase: GamePhase;

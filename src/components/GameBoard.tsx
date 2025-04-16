@@ -1,8 +1,9 @@
 import React from 'react';
 import { Player, GameState } from '@/types';
 
-const ROWS = 6;
-const COLS = 7;
+// Remove unused constants
+// const ROWS = 6;
+// const COLS = 7;
 
 // Helper function
 const getCellClass = (player: Player | null) => {

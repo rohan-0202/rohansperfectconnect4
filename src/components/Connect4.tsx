@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Player, GameState, Board, GamePhase } from '@/types'; // <-- Import types
+import { Player, GameState, Board } from '@/types'; // <-- Import types
 import { io, Socket } from "socket.io-client";
 import { Quicksand } from 'next/font/google';
 
