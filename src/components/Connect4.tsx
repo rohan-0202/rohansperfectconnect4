@@ -3,6 +3,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Player } from '@/types';
 import { io, Socket } from "socket.io-client";
+import { Quicksand } from 'next/font/google'; // Import the font
+
+// Instantiate the font
+const quicksand = Quicksand({ subsets: ['latin'], weight: ['400', '700'] });
 
 // --- Types from Server (ensure these match server/server.ts) ---
 // Duplicating these here for clarity, ideally share via a common types package
@@ -52,6 +56,23 @@ const Connect4: React.FC = () => {
     const [joinGameIdInput, setJoinGameIdInput] = useState<string>(""); // State for join input
     const [joinError, setJoinError] = useState<string | null>(null); // State for join errors
     const [opponentLeftMessage, setOpponentLeftMessage] = useState<string | null>(null); // Message for opponent leaving
+    const [showRules, setShowRules] = useState<boolean>(false); // State for rules visibility
+
+    const rulesText = `
+You're probably familiar with the game connect 4. This game is that game, but my friend said connect 4 was too simple, so I added a twist.
+
+**Rules that are the same:**
+*   Red goes first, Yellow goes second placing tiles on the board.
+*   They alternate in turns, and tiles fall to the bottom unfilled space of their column.
+*   If either player makes 4 tiles in a row horizontally, vertically, or diagonally, that player wins.
+*   If the board fills up completely with the above condition unfulfilled, the game is a draw.
+
+**New Rules:**
+*   At the start of the game, each player selects a "Sabotage Space".
+*   If a player places their tile on a space that is the other player's Sabotage Space, it becomes the other player's color.
+*   If a player chooses to place a tile on their own Sabotage Space, they are then allowed to pick a new Sabotage Space.
+*   If both players have the same Sabotage Space, the effect is cancelled out without either player knowing until either player places a tile there, and then both players pick new Sabotage Spaces.
+    `;
 
     // Function to reset client state to initial screen
     const resetClientState = useCallback(() => {
@@ -314,7 +335,10 @@ const Connect4: React.FC = () => {
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-200 to-purple-300 p-4">
-            <h1 className="text-5xl font-extrabold mb-6 text-gray-800">Rohans Perfect Connect 4</h1>
+            {/* Apply the font class to the h1 element */}
+            <h1 className={`text-5xl font-extrabold mb-6 text-gray-800 ${quicksand.className}`}>
+                Rohans Perfect Connect 4
+            </h1>
 
             {/* Display opponent left message prominently if set */}
             {opponentLeftMessage && (
@@ -340,7 +364,7 @@ const Connect4: React.FC = () => {
                                 value={joinGameIdInput}
                                 onChange={(e) => setJoinGameIdInput(e.target.value)}
                                 placeholder="Enter Game ID"
-                                className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 placeholder-gray-700 text-gray-800"
                                 disabled={!socket || !!gameId}
                             />
                             <button
@@ -352,8 +376,31 @@ const Connect4: React.FC = () => {
                             </button>
                         </div>
                     </div>
+                    {/* Rules Button - Moved and Centered Below */}
+                    <div className="w-full flex justify-center mt-4">
+                        <button
+                            onClick={() => setShowRules(!showRules)}
+                            className="px-6 py-3 bg-gray-500 text-white rounded-lg shadow hover:bg-gray-600 disabled:bg-gray-400 transition-colors duration-200 text-lg font-semibold"
+                        >
+                            Rules
+                        </button>
+                    </div>
                     {joinError && (
                         <p className="mt-2 text-red-600 font-semibold">Error: {joinError}</p>
+                    )}
+                    {/* Rules Dropdown - Added Here */}
+                    {showRules && (
+                        <div className="mt-4 p-4 bg-white rounded-lg shadow-lg border border-gray-300 max-w-md w-full text-left text-sm">
+                            <h3 className="text-lg font-semibold mb-2 text-gray-700">Game Rules</h3>
+                            {/* Use pre-wrap to preserve formatting */}
+                            <pre className="whitespace-pre-wrap text-gray-600">{rulesText}</pre>
+                            <button
+                                onClick={() => setShowRules(false)}
+                                className="mt-3 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs"
+                            >
+                                Close
+                            </button>
+                        </div>
                     )}
                 </div>
             )}
