@@ -137,14 +137,80 @@ const Connect4: React.FC = () => {
         };
     }, [resetClientState]); // Added resetClientState as dependency
 
+    // --- Message Update Logic ---
+    // Define updateMessage before the effect that uses it, wrap in useCallback
+    const updateMessage = useCallback(() => {
+        if (!gameState) {
+            // Show initial message or connection status if gameState isn't loaded yet
+            // setMessage is handled elsewhere for initial connection
+            return;
+        }
+
+        let newMessage: string | React.ReactNode = "";
+        const { gamePhase, currentPlayer, winner, isDraw, overlapJustTriggered } = gameState;
+        const playerString = currentPlayer === 'red' ? "Red" : "Yellow";
+        const myTurn = currentPlayer === myPlayerColor;
+
+        switch (gamePhase) {
+            case 'waiting_for_opponent':
+                newMessage = (
+                    <div className="flex flex-col items-center text-center">
+                        <span>Game ID: <span className="font-mono bg-gray-200 px-1 rounded">{gameId}</span></span>
+                        <span>Send this ID to your opponent!</span>
+                        <span>Waiting for them to join...</span>
+                    </div>
+                );
+                break;
+            case 'init_select_red':
+                newMessage = myPlayerColor === 'red' ? "Your turn (Red): Select your Sabotage Space" : "Waiting for Red to select Sabotage Space";
+                break;
+            case 'init_select_yellow':
+                newMessage = myPlayerColor === 'yellow' ? "Your turn (Yellow): Select your Sabotage Space" : "Waiting for Yellow to select Sabotage Space";
+                break;
+            case 'sabotage_select_red':
+                const redMsgPrefix = myPlayerColor === 'red' ? "Your turn (Red):" : "Waiting for Red:";
+                if (overlapJustTriggered === 'red') newMessage = `${redMsgPrefix} Overlap triggered! Select new Sabotage.`;
+                else if (overlapJustTriggered === 'yellow') newMessage = `${redMsgPrefix} Yellow selected. Select new Sabotage.`;
+                else if (currentPlayer === 'red') newMessage = `${redMsgPrefix} You used your sabotage space! Select a NEW one.`;
+                else newMessage = `${redMsgPrefix} Your sabotage was triggered by Yellow! Select a NEW one.`;
+                break;
+            case 'sabotage_select_yellow':
+                const yellowMsgPrefix = myPlayerColor === 'yellow' ? "Your turn (Yellow):" : "Waiting for Yellow:";
+                if (overlapJustTriggered === 'yellow') newMessage = `${yellowMsgPrefix} Overlap triggered! Select new Sabotage.`;
+                else if (overlapJustTriggered === 'red') newMessage = `${yellowMsgPrefix} Red selected. Select new Sabotage.`;
+                else if (currentPlayer === 'yellow') newMessage = `${yellowMsgPrefix} You used your sabotage space! Select a NEW one.`;
+                else newMessage = `${yellowMsgPrefix} Your sabotage was triggered by Red! Select a NEW one.`;
+                break;
+            case 'playing':
+                if (myTurn) {
+                    newMessage = <>Your turn (<span className={`font-semibold ${myPlayerColor === 'red' ? 'text-red-600' : 'text-yellow-600'}`}>{myPlayerColor === 'red' ? 'Red' : 'Yellow'}</span>)</>;
+                } else {
+                    newMessage = (
+                        // Combine into one span to ensure space is preserved
+                        <span>
+                            Waiting for <span className={`font-semibold ${currentPlayer === 'red' ? 'text-red-600' : 'text-yellow-600'}`}>{playerString}</span>
+                        </span>
+                    );
+                }
+                break;
+            case 'game_over':
+                if (winner) newMessage = <span className="text-green-700 font-bold">Player {winner === 'red' ? 'Red' : 'Yellow'} Wins! {(winner === myPlayerColor) ? "(You)" : "(Opponent)"}</span>;
+                // Escape apostrophe here
+                else if (isDraw) newMessage = <span className="text-gray-700 font-bold">It&apos;s a Draw!</span>;
+                else newMessage = "Game Over";
+                break;
+            default: newMessage = "";
+        }
+        setMessage(newMessage);
+    }, [gameState, gameId, myPlayerColor]); // Dependencies for useCallback
+
     // --- Message Update Effect ---
     // Separated message logic from the main game state update effect
     useEffect(() => {
         updateMessage();
         // Optional: log current state details if needed for debugging
         // console.log(`Phase: ${gameState?.gamePhase}, Current: ${gameState?.currentPlayer}, MyColor: ${myPlayerColor}, GameID: ${gameId}`);
-    }, [gameState, gameId, myPlayerColor]); // Update message when game state, ID, or player color changes
-
+    }, [updateMessage]); // Now only depends on the memoized updateMessage function
 
     // --- Game Actions (Emit events to server) ---
     const handleCreateGame = useCallback(() => {
@@ -208,114 +274,11 @@ const Connect4: React.FC = () => {
     }, [socket, gameId, resetClientState]);
 
     // --- Helper Functions (Mostly unchanged, but now use gameState) ---
-    const checkWin = (currentBoard: Board, player: Player, r: number, c: number): boolean => {
-        if (!player) return false;
-
-        let count = 0;
-        for (let j = 0; j < COLS; j++) {
-            count = (currentBoard[r][j] === player) ? count + 1 : 0;
-            if (count >= 4) return true;
-        }
-
-        count = 0;
-        for (let i = 0; i < ROWS; i++) {
-            count = (currentBoard[i][c] === player) ? count + 1 : 0;
-            if (count >= 4) return true;
-        }
-
-        count = 0;
-        let startRow = r - Math.min(r, c);
-        let startCol = c - Math.min(r, c);
-        for (let i = startRow, j = startCol; i < ROWS && j < COLS; i++, j++) {
-            count = (currentBoard[i][j] === player) ? count + 1 : 0;
-            if (count >= 4) return true;
-        }
-
-        count = 0;
-        startRow = r + Math.min(ROWS - 1 - r, c);
-        startCol = c - Math.min(ROWS - 1 - r, c);
-        for (let i = startRow, j = startCol; i >= 0 && j < COLS; i--, j++) {
-            count = (currentBoard[i][j] === player) ? count + 1 : 0;
-            if (count >= 4) return true;
-        }
-
-        return false;
-    };
-
-    const checkDraw = (currentBoard: Board): boolean => {
-        return currentBoard[0].every(cell => cell !== null);
-    };
-
     const getCellClass = (player: Player | null) => {
         if (player === 'red') return 'bg-red-500';
         if (player === 'yellow') return 'bg-yellow-500';
         return 'bg-gray-200';
     };
-
-    // --- Message Update Logic ---
-    const updateMessage = () => {
-        if (!gameState) {
-            // Show initial message or connection status if gameState isn't loaded yet
-            // setMessage is handled elsewhere for initial connection
-            return;
-        }
-
-        let newMessage: string | React.ReactNode = "";
-        const { gamePhase, currentPlayer, winner, isDraw, overlapJustTriggered } = gameState;
-        const playerString = currentPlayer === 'red' ? "Red" : "Yellow";
-        const myTurn = currentPlayer === myPlayerColor;
-
-        switch (gamePhase) {
-            case 'waiting_for_opponent':
-                newMessage = (
-                    <div className="flex flex-col items-center text-center">
-                        <span>Game ID: <span className="font-mono bg-gray-200 px-1 rounded">{gameId}</span></span>
-                        <span>Send this ID to your opponent!</span>
-                        <span>Waiting for them to join...</span>
-                    </div>
-                );
-                break;
-            case 'init_select_red':
-                newMessage = myPlayerColor === 'red' ? "Your turn (Red): Select your Sabotage Space" : "Waiting for Red to select Sabotage Space";
-                break;
-            case 'init_select_yellow':
-                newMessage = myPlayerColor === 'yellow' ? "Your turn (Yellow): Select your Sabotage Space" : "Waiting for Yellow to select Sabotage Space";
-                break;
-            case 'sabotage_select_red':
-                const redMsgPrefix = myPlayerColor === 'red' ? "Your turn (Red):" : "Waiting for Red:";
-                if (overlapJustTriggered === 'red') newMessage = `${redMsgPrefix} Overlap triggered! Select new Sabotage.`;
-                else if (overlapJustTriggered === 'yellow') newMessage = `${redMsgPrefix} Yellow selected. Select new Sabotage.`;
-                else if (currentPlayer === 'red') newMessage = `${redMsgPrefix} You used your sabotage space! Select a NEW one.`;
-                else newMessage = `${redMsgPrefix} Your sabotage was triggered by Yellow! Select a NEW one.`;
-                break;
-            case 'sabotage_select_yellow':
-                const yellowMsgPrefix = myPlayerColor === 'yellow' ? "Your turn (Yellow):" : "Waiting for Yellow:";
-                if (overlapJustTriggered === 'yellow') newMessage = `${yellowMsgPrefix} Overlap triggered! Select new Sabotage.`;
-                else if (overlapJustTriggered === 'red') newMessage = `${yellowMsgPrefix} Red selected. Select new Sabotage.`;
-                else if (currentPlayer === 'yellow') newMessage = `${yellowMsgPrefix} You used your sabotage space! Select a NEW one.`;
-                else newMessage = `${yellowMsgPrefix} Your sabotage was triggered by Red! Select a NEW one.`;
-                break;
-            case 'playing':
-                if (myTurn) {
-                    newMessage = <>Your turn (<span className={`font-semibold ${myPlayerColor === 'red' ? 'text-red-600' : 'text-yellow-600'}`}>{myPlayerColor === 'red' ? 'Red' : 'Yellow'}</span>)</>;
-                } else {
-                    newMessage = (
-                        // Combine into one span to ensure space is preserved
-                        <span>
-                            Waiting for <span className={`font-semibold ${currentPlayer === 'red' ? 'text-red-600' : 'text-yellow-600'}`}>{playerString}</span>
-                        </span>
-                    );
-                }
-                break;
-            case 'game_over':
-                if (winner) newMessage = <span className="text-green-700 font-bold">Player {winner === 'red' ? 'Red' : 'Yellow'} Wins! {(winner === myPlayerColor) ? "(You)" : "(Opponent)"}</span>;
-                else if (isDraw) newMessage = <span className="text-gray-700 font-bold">It's a Draw!</span>;
-                else newMessage = "Game Over";
-                break;
-            default: newMessage = "";
-        }
-        setMessage(newMessage);
-    }
 
     // --- Render Logic ---
     const board = gameState?.board || createEmptyBoard(); // Use server board or empty if null
