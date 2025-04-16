@@ -1,9 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image'; // <-- Import Image component
 import { Player } from '@/types';
 import { io, Socket } from "socket.io-client";
 import { Quicksand } from 'next/font/google'; // Import the font
+
+// Import image assets
+import redImage from '../../assets/red.png';
+import yellowImage from '../../assets/yellow.png';
 
 // Instantiate the font
 const quicksand = Quicksand({ subsets: ['latin'], weight: ['400', '700'] });
@@ -58,6 +63,12 @@ const Connect4: React.FC = () => {
     const [joinError, setJoinError] = useState<string | null>(null); // State for join errors
     const [opponentLeftMessage, setOpponentLeftMessage] = useState<string | null>(null); // Message for opponent leaving
     const [showRules, setShowRules] = useState<boolean>(false); // State for rules visibility
+    const [isMounted, setIsMounted] = useState(false); // <-- Add state for client-side mount
+
+    // --- Effect to set mounted state ---
+    useEffect(() => {
+        setIsMounted(true);
+    }, []); // Empty dependency array ensures this runs only once on mount
 
     const rulesText = `
 You're probably familiar with the game connect 4. This game is that game, but my friend said connect 4 was too simple, so I added a twist.
@@ -364,9 +375,31 @@ You're probably familiar with the game connect 4. This game is that game, but my
     const myTurnToPlay = myTurn && gamePhase === 'playing' && !iNeedToReselect;
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-200 to-purple-300 p-2 sm:p-4">
+        <div className="relative flex flex-col items-center justify-center min-h-screen bg-[#FDECE2] p-2 sm:p-4 overflow-hidden"> {/* Changed background color */}
+            {/* Decorative Images (Render only on client) */}
+            {isMounted && (
+                <>
+                    <Image
+                        src={redImage}
+                        alt="Red decorative piece"
+                        width={400} // Further increased size
+                        height={400} // Further increased size
+                        className="fixed bottom-0 left-0 transform translate-x-[10%] translate-y-0 z-0 pointer-events-none" // Positioned at bottom-left
+                        priority={false} // Lower priority since they are decorative
+                    />
+                    <Image
+                        src={yellowImage}
+                        alt="Yellow decorative piece"
+                        width={400} // Further increased size
+                        height={400} // Further increased size
+                        className="fixed bottom-0 right-0 transform -translate-x-[10%] translate-y-0 z-0 pointer-events-none" // Positioned at bottom-right
+                        priority={false} // Lower priority
+                    />
+                </>
+            )}
+
             {/* Apply the font class to the h1 element */}
-            <h1 className={`text-3xl sm:text-4xl md:text-5xl font-extrabold mb-4 sm:mb-6 text-gray-800 ${quicksand.className} text-center`}>
+            <h1 className={`relative text-3xl sm:text-4xl md:text-5xl font-extrabold mb-4 sm:mb-6 text-gray-800 ${quicksand.className} text-center z-10`}> {/* Added relative and z-10 */}
                 Rohans Perfect Connect 4
             </h1>
 
@@ -379,7 +412,7 @@ You're probably familiar with the game connect 4. This game is that game, but my
 
             {/* Conditional Rendering: Show Create/Join buttons OR Game ID OR Board */}
             {!gameState && gamePhase === 'initial' && (
-                <div className="flex flex-col items-center space-y-4 w-full px-2">
+                <div className="relative flex flex-col items-center space-y-4 w-full px-2 z-10"> {/* Added relative and z-10 */}
                     <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-4 w-full justify-center">
                         <button
                             onClick={handleCreateGame}
@@ -435,7 +468,7 @@ You're probably familiar with the game connect 4. This game is that game, but my
             )}
 
             {(gameState || gameId) && !opponentLeftMessage && ( // Only show game if opponent hasn't left
-                <div className="flex flex-col items-center w-full max-w-md md:max-w-lg lg:max-w-xl">
+                <div className="relative flex flex-col items-center w-full max-w-md md:max-w-lg lg:max-w-xl z-10"> {/* Added relative and z-10 */}
                     <div className="flex justify-center items-center w-full mb-4 min-h-[4rem]">
                         <div className="text-lg sm:text-xl md:text-2xl text-gray-700 text-center">
                             {message}
