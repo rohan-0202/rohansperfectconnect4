@@ -314,7 +314,7 @@ const Connect4: React.FC = () => {
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-200 to-purple-300 p-4">
-            <h1 className="text-5xl font-extrabold mb-6 text-gray-800">Connect 4 Sabotage</h1>
+            <h1 className="text-5xl font-extrabold mb-6 text-gray-800">Rohans Perfect Connect 4</h1>
 
             {/* Display opponent left message prominently if set */}
             {opponentLeftMessage && (
