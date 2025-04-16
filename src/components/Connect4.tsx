@@ -382,17 +382,17 @@ You're probably familiar with the game connect 4. This game is that game, but my
                     <Image
                         src={redImage}
                         alt="Red decorative piece"
-                        width={400} // Further increased size
-                        height={400} // Further increased size
-                        className="fixed bottom-0 left-0 transform translate-x-[10%] translate-y-0 z-0 pointer-events-none" // Positioned at bottom-left
+                        width={400} // Base width (used for aspect ratio calculation)
+                        height={400} // Base height (used for aspect ratio calculation)
+                        className="fixed bottom-0 left-0 w-[30vw] h-auto max-w-[150px] sm:max-w-[250px] md:max-w-[350px] lg:max-w-[400px] transform translate-x-[5%] translate-y-0 z-0 pointer-events-none" // Responsive width, adjusted translate
                         priority={false} // Lower priority since they are decorative
                     />
                     <Image
                         src={yellowImage}
                         alt="Yellow decorative piece"
-                        width={400} // Further increased size
-                        height={400} // Further increased size
-                        className="fixed bottom-0 right-0 transform -translate-x-[10%] translate-y-0 z-0 pointer-events-none" // Positioned at bottom-right
+                        width={400} // Base width
+                        height={400} // Base height
+                        className="fixed bottom-0 right-0 w-[30vw] h-auto max-w-[150px] sm:max-w-[250px] md:max-w-[350px] lg:max-w-[400px] transform -translate-x-[5%] translate-y-0 z-0 pointer-events-none" // Responsive width, adjusted translate
                         priority={false} // Lower priority
                     />
                 </>
