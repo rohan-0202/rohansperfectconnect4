@@ -61,7 +61,7 @@ const InitialScreen: React.FC<InitialScreenProps> = ({
             </div>
             {/* Server Note */}
             <p className={`mt-4 text-lg text-gray-800 text-center ${quicksand.className}`}>
-                Note: Server falls asleep if unused for a while! If you can&apos;t create a room, just wait a minute!
+                Note: Server falls asleep if unused for a while! If you can&apos;t create a room, just wait a minute and try again!
             </p>
             <div className="w-full flex justify-center mt-4">
                 <button
