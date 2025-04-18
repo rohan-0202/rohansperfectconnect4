@@ -423,6 +423,16 @@ You're probably familiar with the game connect 4. This game is that game, but my
                         myTurnToPlay={myTurnToPlay}
                     />
 
+                    {/* --- Add Leave button specifically for waiting phase --- */}
+                    {gamePhase === 'waiting_for_opponent' && (
+                         <button
+                             onClick={handleLeaveGame}
+                             className="mt-4 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition duration-200"
+                         >
+                             Leave Waiting Room
+                         </button>
+                    )}
+
                     {/* Game Controls (Leave/Rematch) */}
                     <GameControls
                         gamePhase={gamePhase}
@@ -433,6 +443,16 @@ You're probably familiar with the game connect 4. This game is that game, but my
                         iRequested={iRequested}
                         opponentRequested={opponentRequested}
                     />
+
+                    {/* --- Add Leave button specifically for game over phase --- */}
+                    {gamePhase === 'game_over' && (
+                        <button
+                            onClick={handleLeaveGame}
+                            className="mt-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition duration-200"
+                        >
+                            Leave Game
+                        </button>
+                    )}
                 </div>
             )}
 
